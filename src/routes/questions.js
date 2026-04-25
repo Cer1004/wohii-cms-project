@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const prisma = require("../lib/prisma");
+const authenticate = require("../middleware/auth");
+const isOwner = require("../middleware/isOwner");
 
 
 function formatQuestion(question) {
@@ -10,6 +12,9 @@ function formatQuestion(question) {
     keywords: question.keywords.map((k) => k.name),
   };
 }
+
+router.use(authenticate);
+
 
 // GET/api/questions/,/api/questions?keyword=http
 router.get("/", async (req, res) => {
@@ -76,7 +81,7 @@ const keywordsArray = Array.isArray(keywords) ? keywords : [];
 });
 
 //PUT  /api/question/:questionID
-router.put("/:questionID", async (req, res)=>{
+router.put("/:questionID", isOwner, async (req, res)=>{
     const questionID = Number(req.params.questionID);
     const { question, answer, subject, keywords } = req.body;
     const existingQuestion = await prisma.question.findUnique({where: {id: questionID}});
@@ -112,7 +117,7 @@ router.put("/:questionID", async (req, res)=>{
 
 
 //DELETE /api/questions/:questionID
-router.delete("/:questionID", async (req, res)=>{
+router.delete("/:questionID", isOwner, async (req, res)=>{
     const questionID = Number(req.params.questionID);
     const question = await prisma.question.findUnique({
     where: { id: questionID },
