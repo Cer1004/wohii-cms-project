@@ -13,7 +13,7 @@ const seedQuestions = [
   },
   {
     question: "What is the date of independence of Finland ?",
-    answer: "December 6 1917",
+    answer: "6.12.1917",
     subject: "History",
     keywords: ["Finland", "independence"]
   },
@@ -32,6 +32,7 @@ const seedQuestions = [
 ];
 
 async function main() {
+  await prisma.like.deleteMany();
   await prisma.question.deleteMany();
   await prisma.keyword.deleteMany();
   await prisma.user.deleteMany();
