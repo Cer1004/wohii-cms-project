@@ -5,6 +5,15 @@ const authenticate = require("../middleware/auth");
 const isOwner = require("../middleware/isOwner");
 const multer = require("multer");
 const path = require("path");
+const { NotFoundError, ValidationError } = require("../lib/errors");
+const {z} = require("zod");
+
+const QuestionInput = z.object({
+  question: z.string().min(1),
+  answer: z.string().min(1),
+  subject: z.string().min(1),
+  keywords: z.union([z.string(),z.array(z.string())]).optional()
+});
 
 const storage = multer.diskStorage({
   destination: path.join(__dirname, "..","..","public","uploads"),
@@ -99,9 +108,7 @@ router.get("/:questionID", async (req, res) => {
   });
 
   if (!question) {
-    return res.status(404).json({ 
-		message: "Question not found" 
-    });
+    throw new NotFoundError ("Question not found");
   }
   res.json(formatQuestion(question));
 });
@@ -109,15 +116,10 @@ router.get("/:questionID", async (req, res) => {
   
 // POST / QUESTION / api/questions
 router.post("/", upload.single("image"), async (req, res)=> {
-    const {question, answer, subject, keywords} =req.body;
-    
-    if (!question || !answer || !subject){
-    
-        return res.status(400).json({
-            msg:"question, answer and subject are required "
-        });
-    }
-const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
+    const {question, answer, subject, keywords} = QuestionInput.parse(req.body);
+
+const keywordsArray = keywords ? keywords.split(",").map(k => k.trim()).filter(Boolean):[];
+//const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
 const imageUrl = req.file ? `/uploads/${req.file.filename}`:null;
 const newQuestion = await prisma.question.create({
     data: {
@@ -141,20 +143,19 @@ const newQuestion = await prisma.question.create({
 // PUT /api/questions/:questionID
 router.put("/:questionID", isOwner, upload.single("image"), async (req, res)=>{
     const questionID = Number(req.params.questionID);
-    const { question, answer, subject, keywords } = req.body;
+    const { question, answer, subject, keywords } = QuestionInput.parse(req.body);
     const existingQuestion = await prisma.question.findUnique({where: {id: questionID}});
 
     if (!existingQuestion){
-        return res.status(404).json({msg: "Question not found"});
+       throw new NotFoundError ("Question not found");
     } 
     
     if (!question || !answer || !subject){
-            return res.status(400).json({
-            msg:"Question, answer and subject are required "
-        });
+            throw new ValidationError("Question, answer and subject are required ");
     }
     const imageUrl = req.file ? `/uploads/${req.file.filename}`:null;
-    const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
+    //const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
+    const keywordsArray = keywords? keywords.split(",").map(k => k.trim()).filter(Boolean):[];
     const updatedQuestion = await prisma.question.update({
       where: { id: questionID },
       data: {
@@ -195,13 +196,12 @@ router.delete("/:questionID", isOwner, async (req, res)=>{
   });
 
   if (!question) {
-    return res.status(404).json({ message: "Question not found" });
+    throw new NotFoundError ("Question not found");
   }
 
   await prisma.question.delete({ where: { id: questionID } });
 
-  res.json({
-    message: "Question deleted successfully",
+  res.json({ message: "Question deleted successfully",
     question: formatQuestion(question),
   });
 });
@@ -212,7 +212,7 @@ router.post("/:questionId/like", async (req, res) => {
   const questionId = Number(req.params.questionId);
   const question = await prisma.question.findUnique({where: {id: questionId}});
   if (!question){
-    return res.status(404).json({ message: "Question not found" });
+    throw new NotFoundError ("Question not found");
   }
   const like = await prisma.like.upsert({
     where: {userId_questionId: {userId: req.user.userId, questionId}},
@@ -236,7 +236,7 @@ router.delete("/:questionId/like", async (req, res) => {
   const questionId = Number(req.params.questionId);
   const question = await prisma.question.findUnique({where: {id: questionId}});
   if (!question){
-    return res.status(404).json({ message: "Question not found" });
+    throw new NotFoundError ("Question not found");
   }
   const like = await prisma.like.deleteMany({
     where: {userId: req.user.userId, questionId}
@@ -261,7 +261,7 @@ router.delete("/:questionId/like", async (req, res) => {
   });
 
   if (!question) {
-    return res.status(404).json({ msg: "question not found" });
+    throw new NotFoundError ("Question not found");
   }
 
   const correct = question.answer === answer;
