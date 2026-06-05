@@ -12,7 +12,8 @@ const QuestionInput = z.object({
   question: z.string().min(1),
   answer: z.string().min(1),
   subject: z.string().min(1),
-  keywords: z.union([z.string(),z.array(z.string())]).optional()
+  keywords: z.union([z.string(),z.array(z.string())]).optional(),
+  difficulty: z.string().optional()
 });
 
 const storage = multer.diskStorage({
@@ -49,7 +50,8 @@ function formatQuestion(question) {
     user: undefined,
     _count: undefined,
     likes: undefined, 
-    play: undefined
+    play: undefined,
+    difficulty: question.difficulty
   };
 }
 
@@ -58,10 +60,11 @@ router.use(authenticate);
 
 // GET/api/questions/,/api/questions?keyword=http&page=1&limit=5
 router.get("/", async (req, res) => {
-  const { keyword } = req.query;
-
-  const where = keyword ?
-   { keywords: { some: { name: keyword } } }: {};
+  const { keyword, difficulty } = req.query;
+  const where = {
+  ...(keyword && { keywords: { some: { name: keyword } } }),
+  ...(difficulty && { difficulty })
+};
 
     const page= Math.max(1,parseInt(req.query.page) || 1 );
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 5 ));
@@ -116,7 +119,7 @@ router.get("/:questionID", async (req, res) => {
   
 // POST / QUESTION / api/questions
 router.post("/", upload.single("image"), async (req, res)=> {
-    const {question, answer, subject, keywords} = QuestionInput.parse(req.body);
+    const {question, answer, subject, keywords, difficulty} = QuestionInput.parse(req.body);
 
 const keywordsArray = keywords ? keywords.split(",").map(k => k.trim()).filter(Boolean):[];
 //const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
@@ -128,6 +131,7 @@ const newQuestion = await prisma.question.create({
       subject,
       userId: req.user.userId,
       imageUrl,
+      difficulty: difficulty?.trim() || "Unspecified",
       keywords: {
         connectOrCreate: keywordsArray.map((kw) => ({
           where: { name: kw }, create: { name: kw },
@@ -143,7 +147,7 @@ const newQuestion = await prisma.question.create({
 // PUT /api/questions/:questionID
 router.put("/:questionID", isOwner, upload.single("image"), async (req, res)=>{
     const questionID = Number(req.params.questionID);
-    const { question, answer, subject, keywords } = QuestionInput.parse(req.body);
+    const { question, answer, subject, keywords, difficulty } = QuestionInput.parse(req.body);
     const existingQuestion = await prisma.question.findUnique({where: {id: questionID}});
 
     if (!existingQuestion){
@@ -163,6 +167,7 @@ router.put("/:questionID", isOwner, upload.single("image"), async (req, res)=>{
         answer, 
         subject,
         imageUrl,
+        difficulty: difficulty?.trim() || "Unspecified",
         keywords: {
          set: [],
         connectOrCreate: keywordsArray.map((kw) => ({
@@ -252,7 +257,7 @@ router.delete("/:questionId/like", async (req, res) => {
 });
 
    ///api/questions/:qId/play
-  router.post("/:questionId/play", async (req, res) => {
+  router.post("/:questionId/play", authenticate, async (req, res) => {
   const questionId = Number(req.params.questionId);
   const { answer } = req.body;
 

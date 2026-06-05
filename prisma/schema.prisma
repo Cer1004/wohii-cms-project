@@ -24,6 +24,7 @@ model Question {
   question String    @db.VarChar(255)
   answer   String    @db.Text
   subject  String    @db.Text
+  difficulty String   @default("Unspecified")
   userId   Int
   imageUrl String?   @db.VarChar(255)
   likes    Like[]
