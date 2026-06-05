@@ -114,13 +114,14 @@ async function showApp() {
   await loadQuestions();
 }
 
-async function loadQuestions(keyword = "", page = 1) {
+async function loadQuestions(keyword = "", difficulty = "", page = 1) {
   const container = document.getElementById("questions-container");
   container.innerHTML = '<p class="loading">Loading questions...</p>';
 
   try {
     const params = new URLSearchParams({ page, limit: CONFIG.QUESTIONS_PER_PAGE });
     if (keyword) params.set("keyword", keyword);
+    if (difficulty) params.set("difficulty", difficulty);
     const result = await apiFetch(`${CONFIG.ROUTES.QUESTIONS}?${params}`);
     const { data: questions, total, totalPages } = result;
     const currentUserId = getCurrentUserId();
@@ -142,8 +143,17 @@ async function loadQuestions(keyword = "", page = 1) {
         <button class="btn btn-primary" id="new-question-btn">+ New Question</button>
         <div class="search-bar">
           <input type="text" id="keyword-input" placeholder="Search by keyword..." value="${keyword}" />
-          <button class="btn btn-search" id="search-btn">Search</button>
+         
+        <button class="btn btn-search" id="search-btn">Search</button>
           ${keyword ? `<button class="btn btn-clear" id="clear-btn">Clear</button>` : ""}
+
+           <select id="difficulty-select">
+            <option value="" ${difficulty === "" ? "selected" : ""}>All difficulties</option>
+            <option value="Easy" ${difficulty === "Easy" ? "selected" : ""}>Easy</option>
+            <option value="Medium" ${difficulty === "Medium" ? "selected" : ""}>Medium</option>
+            <option value="Hard" ${difficulty === "Hard" ? "selected" : ""}>Hard</option>
+          </select>
+
         </div>
       </div>`;
 
@@ -154,10 +164,16 @@ async function loadQuestions(keyword = "", page = 1) {
         .map(
           (q) => `
         <article class="question-card ${q[CONFIG.API_FIELDS.SOLVED] ? "solved-card" : ""}">
-          <h3>
-            <a href="#" class="question-link" data-id="${q.id}">${q.question}</a>
-            ${q[CONFIG.API_FIELDS.SOLVED] ? `<span class="badge-solved">Solved</span>` : ""}
-          </h3>
+          <div class="question-header">
+  <h3 class="question-title">
+    <a href="#" class="question-link" data-id="${q.id}">${q.question}</a>
+    ${q[CONFIG.API_FIELDS.SOLVED] ? `<span class="badge-solved">Solved</span>` : ""}
+  </h3>
+
+  <span class="difficulty-badge difficulty-${q.difficulty}">
+    ${q.difficulty}
+  </span>
+</div>
           ${
             q.keywords && q.keywords.length
               ? `<div class="question-keywords">${q.keywords.map((k) => `<span class="keyword">${k}</span>`).join("")}</div>`
@@ -194,15 +210,31 @@ async function loadQuestions(keyword = "", page = 1) {
 
     container.innerHTML = html;
 
+      const difficultySelect = document.getElementById("difficulty-select");
+
+if (difficultySelect) {
+  difficultySelect.value = difficulty; 
+
+ difficultySelect.onchange = () => {
+  const keyword = document.getElementById("keyword-input").value.trim();
+  loadQuestions(keyword, difficultySelect.value, 1);
+};
+}
+
     document.getElementById("new-question-btn").addEventListener("click", () => showQuestionForm());
 
     document.getElementById("search-btn").addEventListener("click", () => {
-      loadQuestions(document.getElementById("keyword-input").value.trim(), 1);
-    });
+    const keyword = document.getElementById("keyword-input").value.trim();
+    const difficulty = document.getElementById("difficulty-select").value;
+    loadQuestions(keyword, difficulty, 1);
+});
 
     document.getElementById("keyword-input").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") loadQuestions(e.target.value.trim(), 1);
-    });
+  if (e.key === "Enter") {
+    const difficulty = document.getElementById("difficulty-select").value;
+    loadQuestions(e.target.value.trim(), difficulty, 1);
+  }
+});
 
     const clearBtn = document.getElementById("clear-btn");
     if (clearBtn) clearBtn.addEventListener("click", () => loadQuestions());
@@ -298,7 +330,7 @@ async function loadQuestionDetail(qId) {
 async function showQuestionForm(qId) {
   const container = document.getElementById("questions-container");
   const isEdit = !!qId;
-  let q = { question: "", answer: "", keywords: [] };
+  let q = { question: "", answer: "", keywords: [], difficulty: "" };
 
   if (isEdit) {
     try {
@@ -313,6 +345,7 @@ async function showQuestionForm(qId) {
     <a href="#" id="back-btn" class="back-link">&larr; Back to questions</a>
     <div class="question-form-wrapper">
       <h2>${isEdit ? "Edit Question" : "New Question"}</h2>
+
       <form id="question-form" enctype="multipart/form-data">
         <div class="form-group">
           <label for="q-question">Question</label>
@@ -330,6 +363,17 @@ async function showQuestionForm(qId) {
   <input type="text" id="q-subject" value="${q.subject || ""}" required />
 </div>
 
+<! -- add the difficulty leveö -->
+
+<div class="form-group">
+  <label for="q-difficulty">Difficulty</label>
+  <select id="q-difficulty" required>
+    <option value="">Select difficulty</option>
+    <option value="Easy">Easy</option>
+    <option value="Medium">Medium</option>
+    <option value="Hard">Hard</option>
+  </select>
+</div>
 
         <div class="form-group">
           <label for="q-keywords">Keywords (comma-separated)</label>
@@ -360,6 +404,7 @@ async function showQuestionForm(qId) {
     body.append("answer", document.getElementById("q-answer").value);
     //Here too adding the
     body.append("subject", document.getElementById("q-subject").value);
+    body.append("difficulty", document.getElementById("q-difficulty").value);
     body.append("keywords", document.getElementById("q-keywords").value);
     const imageFile = document.getElementById("q-image").files[0];
     if (imageFile) body.append("image", imageFile);
