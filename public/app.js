@@ -481,7 +481,7 @@ async function showQuestionForm(qId) {
     <option value="History" ${q.subject === "History" ? "selected" : ""}>History</option>
     <option value="Programming" ${q.subject === "Programming" ? "selected" : ""}>Programming</option>
     <option value="Geography" ${q.subject === "Geography" ? "selected" : ""}>Geography</option>
-    value="Animals" ${q.subject === "Animals" ? "selected" : ""}>Animals</option>
+    <option value="Animals" ${q.subject === "Animals" ? "selected" : ""}>Animals</option>
     </select>
 </div>
 
