@@ -114,7 +114,7 @@ async function showApp() {
   await loadQuestions();
 }
 
-async function loadQuestions(keyword = "", difficulty = "", page = 1) {
+async function loadQuestions(keyword = "", difficulty = "", subject = "", page = 1) {
   const container = document.getElementById("questions-container");
   container.innerHTML = '<p class="loading">Loading questions...</p>';
 
@@ -122,6 +122,8 @@ async function loadQuestions(keyword = "", difficulty = "", page = 1) {
     const params = new URLSearchParams({ page, limit: CONFIG.QUESTIONS_PER_PAGE });
     if (keyword) params.set("keyword", keyword);
     if (difficulty) params.set("difficulty", difficulty);
+    if (subject) params.set("subject", subject);
+
     const result = await apiFetch(`${CONFIG.ROUTES.QUESTIONS}?${params}`);
     const { data: questions, total, totalPages } = result;
     const currentUserId = getCurrentUserId();
@@ -152,6 +154,17 @@ async function loadQuestions(keyword = "", difficulty = "", page = 1) {
             <option value="Easy" ${difficulty === "Easy" ? "selected" : ""}>Easy</option>
             <option value="Medium" ${difficulty === "Medium" ? "selected" : ""}>Medium</option>
             <option value="Hard" ${difficulty === "Hard" ? "selected" : ""}>Hard</option>
+          </select>
+
+          <select id="subject-select">
+            <option value="">All Subjects</option>
+            <option value="Math">Math</option>
+            <option value="Science">Science</option>
+            <option value="History">History</option>
+            <option value="Programming">Programming</option>
+            <option value="Geography">Geography</option>
+            <option value="Animals">Animals</option>
+            
           </select>
 
         </div>
@@ -217,12 +230,45 @@ async function loadQuestions(keyword = "", difficulty = "", page = 1) {
 
       const difficultySelect = document.getElementById("difficulty-select");
 
+      const subjectSelect =
+  document.getElementById("subject-select");
+
+if (subjectSelect) {
+  subjectSelect.value = subject;
+
+  subjectSelect.onchange = () => {
+    const keyword =
+      document.getElementById("keyword-input").value.trim();
+
+    const difficulty =
+      document.getElementById("difficulty-select").value;
+
+    loadQuestions(
+      keyword,
+      difficulty,
+      subjectSelect.value,
+      1
+    );
+  };
+}
+
+
 if (difficultySelect) {
   difficultySelect.value = difficulty; 
 
  difficultySelect.onchange = () => {
-  const keyword = document.getElementById("keyword-input").value.trim();
-  loadQuestions(keyword, difficultySelect.value, 1);
+  const keyword =
+    document.getElementById("keyword-input").value.trim();
+
+  const subject =
+    document.getElementById("subject-select").value;
+
+  loadQuestions(
+    keyword,
+    difficultySelect.value,
+    subject,
+    1
+  );
 };
 }
 
@@ -231,13 +277,26 @@ if (difficultySelect) {
     document.getElementById("search-btn").addEventListener("click", () => {
     const keyword = document.getElementById("keyword-input").value.trim();
     const difficulty = document.getElementById("difficulty-select").value;
-    loadQuestions(keyword, difficulty, 1);
+    const subject = document.getElementById("subject-select").value;
+
+    loadQuestions(keyword, difficulty, subject, 1);
 });
 
-    document.getElementById("keyword-input").addEventListener("keydown", (e) => {
+   document.getElementById("keyword-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
-    const difficulty = document.getElementById("difficulty-select").value;
-    loadQuestions(e.target.value.trim(), difficulty, 1);
+
+    const difficulty =
+      document.getElementById("difficulty-select").value;
+
+    const subject =
+      document.getElementById("subject-select").value;
+
+    loadQuestions(
+      e.target.value.trim(),
+      difficulty,
+      subject,
+      1
+    );
   }
 });
 
@@ -245,7 +304,7 @@ if (difficultySelect) {
 
 if (clearBtn) {
   clearBtn.addEventListener("click", () => {
-    loadQuestions("", "", 1);
+    loadQuestions("", "","", 1);
   });
 }
 
@@ -253,7 +312,7 @@ const prevBtn = document.getElementById("prev-btn");
 
 if (prevBtn) {
   prevBtn.addEventListener("click", () => {
-    loadQuestions(keyword, difficulty, page - 1);
+    loadQuestions(keyword, difficulty, subject,  page - 1);
   });
 }
 
@@ -261,7 +320,7 @@ const nextBtn = document.getElementById("next-btn");
 
 if (nextBtn) {
   nextBtn.addEventListener("click", () => {
-    loadQuestions(keyword, difficulty, page + 1);
+    loadQuestions(keyword, difficulty, subject, page + 1);
   });
 }
     container.querySelectorAll(".question-link, .read-more").forEach((el) => {
@@ -413,9 +472,17 @@ async function showQuestionForm(qId) {
        
 <! -- add the subject part -->
 
-        <div class="form-group">
+   <div class="form-group">
   <label for="q-subject">Subject</label>
-  <input type="text" id="q-subject" value="${q.subject || ""}" required />
+  <select id="q-subject" required>
+    <option value="">Select subject</option>
+    <option value="Math" ${q.subject === "Math" ? "selected" : ""}>Math</option>
+    <option value="Science" ${q.subject === "Science" ? "selected" : ""}>Science</option>
+    <option value="History" ${q.subject === "History" ? "selected" : ""}>History</option>
+    <option value="Programming" ${q.subject === "Programming" ? "selected" : ""}>Programming</option>
+    <option value="Geography" ${q.subject === "Geography" ? "selected" : ""}>Geography</option>
+    value="Animals" ${q.subject === "Animals" ? "selected" : ""}>Animals</option>
+    </select>
 </div>
 
 <! -- add the difficulty leveö -->
@@ -498,9 +565,7 @@ if (type === "open") {
   );
 }
 
-
-
-    //Here too adding the
+    //Here too adding 
     body.append("subject", document.getElementById("q-subject").value);
     body.append("difficulty", document.getElementById("q-difficulty").value);
     body.append("keywords", document.getElementById("q-keywords").value);

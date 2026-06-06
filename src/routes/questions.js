@@ -68,10 +68,11 @@ router.use(authenticate);
 
 // GET/api/questions/,/api/questions?keyword=http&page=1&limit=5
 router.get("/", async (req, res) => {
-  const { keyword, difficulty } = req.query;
+  const { keyword, difficulty, subject } = req.query;
   const where = {
   ...(keyword && { keywords: { some: { name: keyword } } }),
-  ...(difficulty && { difficulty })
+  ...(difficulty && { difficulty }),
+  ...(subject && { subject })
 };
 
     const page= Math.max(1,parseInt(req.query.page) || 1 );
@@ -138,7 +139,6 @@ router.post("/", upload.single("image"), async (req, res)=> {
 }
 
 const keywordsArray = keywords ? keywords.split(",").map(k => k.trim()).filter(Boolean):[];
-//const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
 const imageUrl = req.file ? `/uploads/${req.file.filename}`:null;
 const newQuestion = await prisma.question.create({
     data: {
