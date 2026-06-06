@@ -10,9 +10,13 @@ const {z} = require("zod");
 
 const QuestionInput = z.object({
   question: z.string().min(1),
+  type: z.string(),
   answer: z.string().min(1),
+  answer1: z.string().optional(),
+  answer2: z.string().optional(),
+  answer3: z.string().optional(),
   subject: z.string().min(1),
-  keywords: z.union([z.string(),z.array(z.string())]).optional(),
+  keywords: z.union([z.string(), z.array(z.string())]).optional(),
   difficulty: z.string().optional()
 });
 
@@ -41,6 +45,10 @@ const upload = multer ({
 function formatQuestion(question) {
   return {
     ...question,
+    type: question.type,
+    answer1: question.answer1,
+    answer2: question.answer2,
+    answer3: question.answer3,
     subject: question.subject,
     keywords: question.keywords.map((k) => k.name),
     userName: question.user ? question.user.name : null, 
@@ -119,7 +127,15 @@ router.get("/:questionID", async (req, res) => {
   
 // POST / QUESTION / api/questions
 router.post("/", upload.single("image"), async (req, res)=> {
-    const {question, answer, subject, keywords, difficulty} = QuestionInput.parse(req.body);
+    const {question,type, answer, answer1, answer2, answer3, subject, keywords, difficulty} = QuestionInput.parse(req.body);
+
+    if (type === "multiple") {
+  if (!answer || !answer1 || !answer2 || !answer3) {
+    throw new ValidationError(
+      "Multiple choice questions require 4 answers"
+    );
+  }
+}
 
 const keywordsArray = keywords ? keywords.split(",").map(k => k.trim()).filter(Boolean):[];
 //const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
@@ -127,7 +143,11 @@ const imageUrl = req.file ? `/uploads/${req.file.filename}`:null;
 const newQuestion = await prisma.question.create({
     data: {
       question, 
+      type,
       answer, 
+      answer1,
+      answer2,
+      answer3,
       subject,
       userId: req.user.userId,
       imageUrl,
@@ -147,7 +167,7 @@ const newQuestion = await prisma.question.create({
 // PUT /api/questions/:questionID
 router.put("/:questionID", isOwner, upload.single("image"), async (req, res)=>{
     const questionID = Number(req.params.questionID);
-    const { question, answer, subject, keywords, difficulty } = QuestionInput.parse(req.body);
+    const { question, type, answer, answer1, answer2, answer3, subject, keywords, difficulty } = QuestionInput.parse(req.body);
     const existingQuestion = await prisma.question.findUnique({where: {id: questionID}});
 
     if (!existingQuestion){
@@ -157,6 +177,15 @@ router.put("/:questionID", isOwner, upload.single("image"), async (req, res)=>{
     if (!question || !answer || !subject){
             throw new ValidationError("Question, answer and subject are required ");
     }
+
+    if (type === "multiple") {
+  if (!answer1 || !answer2 || !answer3) {
+    throw new ValidationError(
+      "Multiple choice questions require 4 answers"
+    );
+  }
+}
+
     const imageUrl = req.file ? `/uploads/${req.file.filename}`:null;
     //const keywordsArray = keywords.split(",").map(k => k.trim()).filter(Boolean);
     const keywordsArray = keywords? keywords.split(",").map(k => k.trim()).filter(Boolean):[];
@@ -164,7 +193,11 @@ router.put("/:questionID", isOwner, upload.single("image"), async (req, res)=>{
       where: { id: questionID },
       data: {
         question, 
+        type,
         answer, 
+        answer1,
+        answer2,
+        answer3,
         subject,
         imageUrl,
         difficulty: difficulty?.trim() || "Unspecified",
@@ -269,7 +302,15 @@ router.delete("/:questionId/like", async (req, res) => {
     throw new NotFoundError ("Question not found");
   }
 
-  const correct = question.answer === answer;
+  let correct = false;
+
+if (question.type === "open") {
+  correct =
+    question.answer.trim().toLowerCase() ===
+    answer.trim().toLowerCase();
+} else {
+  correct = question.answer === answer;
+}
 
   await prisma.play.upsert({
     where: {

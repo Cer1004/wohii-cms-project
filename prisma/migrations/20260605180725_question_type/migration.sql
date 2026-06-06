@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `questions` ADD COLUMN `answer1` VARCHAR(191) NULL,
+    ADD COLUMN `answer2` VARCHAR(191) NULL,
+    ADD COLUMN `answer3` VARCHAR(191) NULL,
+    ADD COLUMN `type` VARCHAR(191) NOT NULL DEFAULT 'open';

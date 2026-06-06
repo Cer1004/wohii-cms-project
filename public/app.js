@@ -165,10 +165,15 @@ async function loadQuestions(keyword = "", difficulty = "", page = 1) {
           (q) => `
         <article class="question-card ${q[CONFIG.API_FIELDS.SOLVED] ? "solved-card" : ""}">
           <div class="question-header">
+          
   <h3 class="question-title">
     <a href="#" class="question-link" data-id="${q.id}">${q.question}</a>
     ${q[CONFIG.API_FIELDS.SOLVED] ? `<span class="badge-solved">Solved</span>` : ""}
   </h3>
+
+  <span class="type-badge type-${q.type}">
+  ${q.type === "open" ? "Open Ended" : "Multiple Choice"}
+</span>
 
   <span class="difficulty-badge difficulty-${q.difficulty}">
     ${q.difficulty}
@@ -237,14 +242,28 @@ if (difficultySelect) {
 });
 
     const clearBtn = document.getElementById("clear-btn");
-    if (clearBtn) clearBtn.addEventListener("click", () => loadQuestions());
 
-    const prevBtn = document.getElementById("prev-btn");
-    if (prevBtn) prevBtn.addEventListener("click", () => loadQuestions(keyword, page - 1));
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    loadQuestions("", "", 1);
+  });
+}
 
-    const nextBtn = document.getElementById("next-btn");
-    if (nextBtn) nextBtn.addEventListener("click", () => loadQuestions(keyword, page + 1));
+const prevBtn = document.getElementById("prev-btn");
 
+if (prevBtn) {
+  prevBtn.addEventListener("click", () => {
+    loadQuestions(keyword, difficulty, page - 1);
+  });
+}
+
+const nextBtn = document.getElementById("next-btn");
+
+if (nextBtn) {
+  nextBtn.addEventListener("click", () => {
+    loadQuestions(keyword, difficulty, page + 1);
+  });
+}
     container.querySelectorAll(".question-link, .read-more").forEach((el) => {
       el.addEventListener("click", (e) => {
         e.preventDefault();
@@ -351,10 +370,46 @@ async function showQuestionForm(qId) {
           <label for="q-question">Question</label>
           <input type="text" id="q-question" value="${q.question}" required />
         </div>
+
+        <div class="form-group">
+        <label for="q-type">Question Type</label>
+        
+        <select id="q-type">
+  <option value="open" ${q.type === "open" ? "selected" : ""}>
+    Open Ended
+  </option>
+
+  <option value="multiple" ${q.type === "multiple" ? "selected" : ""}>
+    Multiple Choice
+  </option>
+</select>
+
         <div class="form-group">
           <label for="q-answer">Answer</label>
           <textarea id="q-answer" rows="4" required>${q.answer}</textarea>
         </div>
+
+       <div id="mcq-fields" style="display:none;">
+  <div class="form-group">
+    <label>Correct Answer</label>
+    <input type="text" id="q-correct-answer" />
+  </div>
+
+  <div class="form-group">
+    <label>Wrong Answer 1</label>
+    <input type="text" id="q-answer1" />
+  </div>
+
+  <div class="form-group">
+    <label>Wrong Answer 2</label>
+    <input type="text" id="q-answer2" />
+  </div>
+
+  <div class="form-group">
+    <label>Wrong Answer 3</label>
+    <input type="text" id="q-answer3" />
+  </div>
+</div>
        
 <! -- add the subject part -->
 
@@ -394,14 +449,57 @@ async function showQuestionForm(qId) {
     loadQuestions();
   });
 
+  const typeSelect = document.getElementById("q-type");
+  const mcqFields = document.getElementById("mcq-fields");
+
+  function updateMCQVisibility() {
+    mcqFields.style.display =
+      typeSelect.value === "multiple" ? "block" : "none";
+  }
+
+typeSelect.addEventListener("change", updateMCQVisibility);
+
+updateMCQVisibility();
+
   document.getElementById("question-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById("question-form-error");
     errorEl.textContent = "";
 
-    const body = new FormData();
-    body.append("question", document.getElementById("q-question").value);
-    body.append("answer", document.getElementById("q-answer").value);
+
+   
+const type = document.getElementById("q-type").value;
+const body = new FormData();
+
+body.append("type", type);
+body.append("question", document.getElementById("q-question").value);
+
+if (type === "open") {
+  body.append("answer", document.getElementById("q-answer").value);
+} else {
+  body.append(
+    "answer",
+    document.getElementById("q-correct-answer").value
+  );
+
+  body.append(
+    "answer1",
+    document.getElementById("q-answer1").value
+  );
+
+  body.append(
+    "answer2",
+    document.getElementById("q-answer2").value
+  );
+
+  body.append(
+    "answer3",
+    document.getElementById("q-answer3").value
+  );
+}
+
+
+
     //Here too adding the
     body.append("subject", document.getElementById("q-subject").value);
     body.append("difficulty", document.getElementById("q-difficulty").value);
@@ -430,6 +528,42 @@ async function playQuestion(qId) {
   try {
     const q = await apiFetch(`${CONFIG.ROUTES.QUESTIONS}/${qId}`);
 
+    let answerHtml = "";
+
+    if (q.type === "open") {
+  answerHtml = `
+    <div class="form-group">
+      <label for="play-answer">Your answer</label>
+      <textarea id="play-answer" rows="3" required></textarea>
+    </div>
+  `;
+} else {
+  const options = [
+  q.answer,
+  q.answer1,
+  q.answer2,
+  q.answer3
+].filter(Boolean);
+
+options.sort(() => Math.random() - 0.5);
+
+answerHtml = `
+  <div class="mcq-options">
+    ${options.map(option => `
+      <label class="mcq-option">
+        <input
+          type="radio"
+          name="play-answer"
+          value="${option}"
+          required
+        />
+        ${option}
+      </label>
+    `).join("")}
+  </div>
+`;}
+
+
     container.innerHTML = `
       <a href="#" id="back-btn" class="back-link">&larr; Back to questions</a>
       <div class="question-form-wrapper" style="text-align:center">
@@ -440,11 +574,11 @@ async function playQuestion(qId) {
             ? `<div class="question-keywords" style="justify-content:center;margin-bottom:1.5rem">${q.keywords.map((k) => `<span class="keyword">${k}</span>`).join("")}</div>`
             : ""
         }
+
         <form id="play-form" style="text-align:left">
-          <div class="form-group">
-            <label for="play-answer">Your answer</label>
-            <textarea id="play-answer" rows="3" required></textarea>
-          </div>
+
+          ${answerHtml}
+
           <div style="text-align:center">
             <button type="submit" class="btn btn-play" style="padding:0.7rem 2.5rem;font-size:1rem">Submit</button>
           </div>
@@ -465,7 +599,20 @@ async function playQuestion(qId) {
       errorEl.textContent = "";
       resultEl.innerHTML = "";
 
-      const answer = document.getElementById("play-answer").value;
+      let answer;
+      if (q.type === "open") {
+
+  answer =
+    document.getElementById("play-answer").value;
+
+} else {
+
+  answer =
+    document.querySelector(
+      'input[name="play-answer"]:checked'
+    ).value;
+
+}
 
       try {
         const result = await apiFetch(`${CONFIG.ROUTES.QUESTIONS}/${qId}/play`, {
