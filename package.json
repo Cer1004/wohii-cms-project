@@ -12,7 +12,7 @@
     "db:reset": "npx prisma migrate reset",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:setup": "DATABASE_URL=mysql://root:***REMOVED***@localhost:3306/cms_test npx prisma migrate deploy",
+    "test:setup": "npx prisma migrate deploy",
     "test:coverage": "vitest run --coverage"
   },
   "prisma": {
